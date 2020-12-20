@@ -1,13 +1,14 @@
 import matplotlib.pyplot as plt
 
 C_WATER = 4.18  # J/g*°C
-BOILING = 100.0
 BP_WATER = 100  # °C
 POWER = 1500  # watts
 RESOLUTION = 100  # milliseconds
 
-U_STEEL = 26  # W/mK
+U_STEEL = 16  # W/mK
+U_AIR = 0.0260
 A_STEEL = 0.0645  # m^2
+TH_STEEL = 0.001  # m
 T_AMBIENT = 25
 EPS = 0.0001
 
@@ -15,7 +16,7 @@ EPS = 0.0001
 def calc_new_temp(c: float, in_temp: float, mass: float, e_out: float, e_in: float) -> float:
     energy = e_in - e_out
     delta_t = energy / (mass * c)
-    return min(in_temp + delta_t, 1000)  # TODO: fix this
+    return min(in_temp + delta_t, BP_WATER)
 
 
 def to_sec(milliseconds: int) -> float:
@@ -30,9 +31,9 @@ class Control:
         self.setpoint = setpoint
         self.output = False
         self.time = 0
-        self.kp = 1e-1
-        self.ki = 1e-7
-        self.kd = 1e4
+        self.kp = 1e3
+        self.ki = 1e-3
+        self.kd = 1e5
         self.pressure = 0
         self.integral = 0
         self.last_error = 0
@@ -76,8 +77,8 @@ def main():
     relay = Control(setpoint)
     relay.turn_on()
     first_cross = 0
-    while curr_time < RESOLUTION * (1000 / RESOLUTION) * 5000:
-        heat_loss = U_STEEL * A_STEEL * (t_water - T_AMBIENT)
+    while curr_time < RESOLUTION * (1000 / RESOLUTION) * 1000:
+        heat_loss = U_AIR * A_STEEL * (t_water - T_AMBIENT) * to_sec(RESOLUTION) / (TH_STEEL)
         heat_gain = POWER * to_sec(RESOLUTION) if relay.output else 0
         t_water = round(calc_new_temp(C_WATER, t_water, m_water, heat_loss, heat_gain), 3)
         temps_actual[to_sec(curr_time)] = t_water
